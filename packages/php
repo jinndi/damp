@@ -1,0 +1,67 @@
+#!/bin/bash
+
+isphp()
+{
+	if [ -n "$2" ]; then 
+		phpver="$2" 
+	else 
+		phpver="php8.2" 
+	fi
+
+	if [ "$(isset "$phpver")" = "OFF" ]
+	then
+		stop 'apache2'
+		print_status "$D_INSTALL $phpver:"
+		if [ -n "$2" ] && [ -n "$(getV "$2")" ]; then
+			apt install -y "$phpver" libapache2-mod-php7.4 "$phpver"-{common,mysql,xml,curl,gd,zip,mbstring,intl,imap,memcached,redis} 2>/dev/null 
+			systemctl restart apache2 2>/dev/null
+			isphp 'install' "$phpver"
+		else
+			apt install -y php7.4 libapache2-mod-php7.4 php7.4-{common,mysql,xml,curl,gd,zip,mbstring,intl,imap,memcached,redis} 2>/dev/null 
+			apt install -y php8.2 libapache2-mod-php8.2 php8.2-{common,mysql,xml,curl,gd,zip,mbstring,intl,imap,memcached,redis} 2>/dev/null 
+			systemctl restart apache2 2>/dev/null		
+			isphp 'install' "php8.2"
+		fi	
+		start 'apache2'
+	else
+		phpv=$(php -v)
+		print_success " PHP $D_INSTALLED " "$phpv"
+
+		if [ -z "$1" ] && (whiptail --title  " PHP $D_INSTALLED " --yesno  "$D_REINSTALLY PHP?\n\n$phpv" 10 60)  then
+     		print_status "$D_REINSTALL PHP"
+			removephp
+			print_status "PHP $D_REMOVEDY"
+			isphp
+		fi
+	fi
+}
+
+isphp7.4()
+{
+	isphp "$1" "$2"
+}
+
+isphp8.2()
+{
+	isphp "$1" "$2"
+}
+
+removephp()
+{
+	stop 'apache2'
+	stop 'mariadb'
+	print_status "$D_MAKEREMOVE $1"
+	apt autopurge "$1*" -y 2> /dev/null 
+	start 'apache2'
+	print_status "$1 $D_DELITING"
+}
+
+removephp7.4()
+{
+	removephp "$1"
+}
+
+removephp8.2()
+{
+	removephp "$1"
+}

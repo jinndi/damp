@@ -1,0 +1,183 @@
+#!/bin/bash
+
+isset()
+{
+	case "$1" in
+		"composer")
+			if [ -f /usr/local/bin/composer ]; then 
+				echo "ON"
+				return
+			else	
+				echo "OFF"
+				return
+			fi
+		;;
+	esac
+
+	I=$(dpkg --get-selections | grep -P "^$1\s" | grep -v deinstall)
+	if [ -n "$I" ]; then
+		echo "ON"
+	else
+		echo "OFF"
+	fi
+}
+
+getV()
+{
+
+	aptcacheshowv(){
+		apt-cache show "$1" 2>/dev/null | grep -m 1 -oP "Version.+" | tr ":" " " | grep -oP "\s[^\s\-+~:]{3,}" | tr -d " "
+	}
+
+	case "$1" in
+		"composer")
+			curl -L -w '%{url_effective}' -s -o /dev/null https://github.com/composer/composer/releases/latest | grep -oP "[\d\.]{2,}"
+			return
+		;;
+		"nodejs")
+			if ! [ -f "/etc/apt/sources.list.d/nodesource.list" ]; then
+				curl -fsSL https://deb.nodesource.com/setup_current.x | sudo -E bash - &>/dev/null
+				aptcacheshowv "nodejs"
+				return
+			else
+				aptcacheshowv "nodejs"
+				return
+			fi
+		;;
+	esac
+
+	v=$(aptcacheshowv "$1")
+
+	if [ -n "$v" ]; then
+		echo "$v"
+	else 	
+		phpp=$(echo "$1" | grep -oP "^php\d\.\d$")
+		#mysqlp=$(echo "$1" | grep -oP "^mysql-server$")
+		dockerp=$(echo "$1" | grep -oP "^docker-ce$")
+		if [ -n "$phpp" ]; then
+			wget -O /etc/apt/trusted.gpg.d/php.gpg https://packages.sury.org/php/apt.gpg 2>/dev/null 
+			echo "deb https://packages.sury.org/php/ $DISTRO main" | tee "/etc/apt/sources.list.d/php.list" 2> /dev/null  
+			apt update &>/dev/null 
+			aptcacheshowv "$1"
+			return
+		fi
+		if [ -n "$dockerp" ]; then
+			apt remove docker docker-engine docker.io containerd runc &> /dev/null
+			install -m 0755 -d /etc/apt/keyrings
+			curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+			chmod a+r /etc/apt/keyrings/docker.gpg
+			echo \
+			"deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+			$DISTRO stable" | \
+			tee /etc/apt/sources.list.d/docker.list 2> /dev/null 
+			apt update &>/dev/null 
+			aptcacheshowv "$1"
+			return
+		fi
+		print_status "$D_REPONOT $1"
+	fi
+}
+
+getP()
+{
+	service --status-all 2>/dev/null | grep "$1" | grep -q '+'
+}
+
+wrun() 
+{
+    starttimer()
+    {	
+		if [ -n "$1" ]; then
+			msg="$1"
+		else
+			msg="$D_PLSWAIT"
+		fi
+		i=0; clear
+        while true; 
+		do
+			message="$ttimer $msg $((i+=1)) ${normal}"
+			width=$(tput cols)
+			height=$(tput lines)
+			length=$((${#message}-30))
+			tput cup $((height / 2)) $(((width / 2) - (length / 2)))
+			echo -e "$message"
+			sleep 1; clear
+        done
+    }
+    if [ "$1" == "+" ]; then 
+        starttimer "$2" &
+        timer_pid=$! 
+        return
+    fi
+    if [ "$1" == "-" ]; then  
+        kill "$timer_pid"
+    fi
+}
+
+progresss()
+{
+	{
+		${$1} &
+		pidcmd=$!
+		echo 10; sleep 1; echo 50; sleep 1
+		echo 75; sleep 1; echo 85; ssleep 1
+		wait $pidcmd
+		kill $pidcmd
+	} | whiptail --gauge  "$2" 6 60 0
+}
+
+xtermrun()
+{
+	xterm -geometry 100x30+400+300 -bg black -fg green -fa Display -fs 9 -b 15 -sl 10000 -title "$1" -e "$2" &
+}
+
+gosql()
+{
+	startmariadb
+    echo "ОК" && mysql --defaults-file="/etc/mysql/debian.cnf" -e "$1"
+}
+
+findparamondir()
+{
+        while IFS= read -r file
+        do
+        	searchstr=$(grep -P "$2" "$file" | grep -Po "$3")
+        	if [ -n "$searchstr" ]; then
+        		echo "$searchstr"
+        		break
+        	fi
+        done < <(find "$1" -type f)
+        echo
+}
+
+changeconf()
+{
+	NSTR=$(grep -nP "$1" "$2" | tr "\n" " " | grep -oP "^\d+")
+	if [ -n "$NSTR" ]; then
+		sed -Ei "$NSTR s/.+/$3/" "$2" > /dev/null	
+	else
+		echo "$3" | tee -a "$2" > /dev/null
+	fi
+	print_status "+ $3 -> $2"
+}
+
+print_status() {
+    echo
+    echo -e "$tstatus## ${white}$1${normal}"
+    echo
+	sleep 2
+}
+
+print_success() 
+{
+    title="$1"
+    text="$2"
+    echo
+    echo
+    echo -e "  $tsuccess${title}${normal}  "
+    echo
+    echo -e "  ${text}  "
+    echo
+	echo
+	sleep 3
+}

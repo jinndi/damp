@@ -1,0 +1,176 @@
+#!/bin/bash
+
+sitescontrol()
+{
+	clear
+	mapfile -t sites < <(cd "$HOME/www/domains" && ls -d -- */ 2>/dev/null)
+	declare -a cheksites=("+ $D_SITEADDNEW" "" "" "")
+	 	
+	if [ "$(isset 'apache2')" = "OFF" ]
+	then
+		whiptail --title  " $D_ATTENTION " --msgbox  "$D_SITEINFONOAPACHE" 10 60
+		menu
+	fi
+
+	for site in "${sites[@]}" 
+	do
+		site=$(echo -e "$site" | grep -oP "[^/]+") 
+		if [ -e "/etc/apache2/sites-available/$site.conf" ]; then
+			if [ -f "/etc/apache2/sites-enabled/$site.conf" ]; then
+				cheksites+=( "$site" "  ⊳ $D_SITEACTIVE")
+			else
+				cheksites+=( "$site" "  ◻ $D_SITENOACTIVE")
+			fi
+		fi
+	done
+
+	OPTIONSCTRL=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu  "\n$D_SITEMANAGEMENT\n" 20 60 10 \
+	"${cheksites[@]}" 3>&1 1>&2 2>&3)
+ 	
+	exitstatus=$?
+	
+	if [ $exitstatus = 0 ]  
+	then
+		if [ "$OPTIONSCTRL" =  "+ $D_SITEADDNEW" ]; then
+			siteadd
+		else 
+			if [ "$OPTIONSCTRL" =  "" ]; then
+				sitescontrol
+			fi
+			siteactions "$OPTIONSCTRL"
+		fi
+	else
+     	menu
+	fi
+}
+
+siteactions ()
+{
+	clear
+	if [ -e "/etc/apache2/sites-available/$1.conf" ]; then
+		if [ -f "/etc/apache2/sites-enabled/$1.conf" ]; then
+			action=( " ◻" "$D_SITEOFF" )
+		else
+			action=( " ⊳" "$D_SITEON" )
+		fi
+	fi
+
+	OPTIONSITE=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu  "\n  $D_ACTIONS: $1" 20 60 10 \
+	"${action[@]}" \
+	" ☶ " "$D_SITEOPENCONF" \
+	" ♨ " "$D_SITEOPENBROWSER" \
+	" ◲ " "$D_SITEOPENEXPLORER" \
+	" ▦ " "$D_SITEFILEBACKUP" \
+	" ₪ " "$D_SITEBASEBACKUP" \
+	" ✘ " "$D_SITEALLDELITE" \
+	3>&1 1>&2 2>&3)
+	exitstatus=$?
+	
+	if [ $exitstatus = 0 ]  
+	then
+		case $OPTIONSITE in
+			" ☶ ") configedit "$1.conf" ;;
+			" ♨ ") su "$urun" -c "xdg-open https://$1" ;;
+			" ◲ ") xtermrun "$SITEPATH" "mc $HOME/www/domains/$1" ;;
+			" ▦ ") backupmenufile "$1" ;;
+			" ₪ ") backupmenubase "$1" ;;
+			" ✘ ") sitedelete "$1" ;;
+			*) switchsiteactivity "$1" ;;
+		esac
+	else
+     	sitescontrol
+	fi
+	siteactions "$1"
+}
+
+sitein()
+{
+	if [ -n "$1" ] ; then
+		SITENAME="$1"
+	else
+		SITENAME=$(whiptail --title  " $D_SITETITLE " \
+		--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+		--inputbox "\n$D_SITEBOX" 10 60 3>&1 1>&2 2>&3)
+		exitstatus=$?
+		isvalid=$(echo "$SITENAME" | grep -E "^([A-Za-z]+[A-Za-z0-9-]+\.?)+([A-Za-z]{2,10})?$")
+		if [ $exitstatus = 0 ] ;  then
+			if [ -z "$isvalid" ];  then
+				echo -e "$D_SITEERR" 
+				sleep 3
+				sitein
+			fi
+		else
+			sitescontrol
+		fi
+	fi
+	SITEPATH="$HOME/www/domains/$SITENAME" # locate site folder
+}
+
+
+siteadd()
+{
+	clear
+	sitein
+	ishosts
+	vhconfadd
+	foldercreate
+	basecreate
+	sslcertadd
+	htaccessadd
+	indexadd
+	assignrights
+	restartapache2
+	endrun
+}
+
+
+sitedelete()
+{
+	if (whiptail --title " ✘  $D_SITEDEL " --yesno " $D_SITEDELYN: $1 ?" 10 60); then
+		cmd="$(a2dissite "$1" > /dev/null &&  \
+		rm "/etc/apache2/sites-available/$1.conf" 2> /dev/null && \
+		rm -R "$HOME/www/domains/$1" 2> /dev/null && \
+		sed -Ei "/^127\.0\.0\.1\s+$1\s+www\.$1/d" /etc/hosts > /dev/null && \
+		systemctl restart apache2 2> /dev/null)"
+		progresss "$cmd" "$D_SITEDELITE $1"
+		whiptail --title  " $D_DELITED " --msgbox  "Сайт $1 $D_REMOVEDY" 10 60
+		namebase="$(echo "$1" | tr "." "_")"
+		isbase="$(gosql "SHOW DATABASES LIKE '$namebase'" | grep -o "$namebase")"
+		if [ -n "$isbase" ]; then
+			if (whiptail --title  " $D_ATTENTION " --yesno "$D_SITEDELBASEYN $namebase ?" 10 60)  
+			then
+				progresss "$(gosql "DROP DATABASE $namebase")" " ✘  $D_SITEDELBASE $namebase... "
+				whiptail --title  " $D_DELITED " --msgbox  "$namebase - $D_SITEDELBASEOK" 10 60
+			fi
+		fi	
+		sitescontrol	
+	else
+		sitescontrol
+	fi
+}
+
+switchsiteactivity()
+{
+	if [ -L "/etc/apache2/sites-enabled/$1.conf" ] 
+	then
+		cmd="$(a2dissite "$1" > /dev/null && \
+		sed -Ei "/^127\.0\.0\.1\s+$1\s+www\.$1/d" /etc/hosts)"
+		progresss "$cmd" " ◼ $D_SITEDEACTIVATE $1..."
+	else
+		cmd="$(a2ensite "$1" > /dev/null && \
+		echo "127.0.0.1 $1 www.$1" | tee -a /etc/hosts > /dev/null)"
+		progresss "$cmd" " ► $D_SITEACTIVATE $1..."	
+	fi
+	restartapache2	
+	sitescontrol
+}
+
+endrun()
+{
+	whiptail --title  " 🎉 $D_READY " --msgbox  "$D_SITEADD https://$SITENAME" 10 60
+	sitescontrol
+}

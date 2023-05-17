@@ -1,0 +1,77 @@
+#!/bin/bash
+
+menu()
+{
+	clear
+	wrun + "$D_LOADMENU"
+	declare -a heamenu
+	if [ "$(isset 'apache2')" = "ON" ] ; then
+		v_apache="$(getV 'apache2')"
+		if ! getP "apache2"; then
+			heamenu+=("a" "🔴 Apache  $v_apache")
+		else
+			heamenu+=("a" "🔵 Apache  $v_apache")
+		fi
+	fi
+	if [ "$(isset 'mariadb-server')" = "ON" ] ; then
+		v_mariadb="$(getV 'mariadb-server')"
+		if ! getP "mariadb"; then
+			heamenu+=("m" "🔴 Mariadb $v_mariadb")
+		else
+			heamenu+=("m" "🔵 Mariadb $v_mariadb")
+		fi
+	fi
+	if [ "$(isset 'php\d\.\d')" = "ON" ] ; then
+		heamenu+=("p" "🔵 PHP     $(php -r 'echo phpversion();')")
+	fi	
+	if [ "$(isset 'proftpd-core')" = "ON" ] ; then
+		v_ftp="$(getV 'proftpd-core')"
+		if ! getP "proftpd"; then
+			heamenu+=("f" "🔴 FTP     $v_ftp")
+		else
+			heamenu+=("f" "🔵 FTP     $v_ftp")
+		fi
+	fi
+	if [ "$(isset 'docker-ce')" = "ON" ] ; then
+		v_docker="$(getV 'docker-ce')"
+		if ! getP "docker"; then
+			heamenu+=("d" "🔴 Docker  $v_docker")
+		else
+			heamenu+=("d" "🔵 Docker  $v_docker")
+		fi
+	fi
+
+	heamenu+=(" " " ")
+	if [ -d "$HOME/www/log" ]; then
+		heamenu+=("l" "📃 $D_MENULOG")
+	fi
+	wrun -
+	RENDER_MENU (){
+		OPTIONMENU=$(whiptail --title  "$D_NAMESOFT" \
+		--ok-button  " ОК [Enter] " --cancel-button  " $D_EXIT [ESC] " \
+		--menu  "$D_WHOI" 20 60 11 \
+		"${heamenu[@]}" \
+		"s" "🌎 $D_MENUSITE" \
+		"i" "📀 $D_MENUINST" \
+		"g" "📦 $D_MENUPKG" \
+		"c" "🔧 $D_MENUCFG" \
+		3>&1 1>&2 2>&3) 
+		case $OPTIONMENU in
+			"i") basicinstall ;;
+			"g") pkgcontrol ;;
+			"s") sitescontrol ;;
+			"a") servicecontrol "apache2" ;;
+			"m") servicecontrol "mariadb" ;;
+			"d") servicecontrol "docker" ;;
+			"y") servicecontrol "mysql" ;;
+			"p") phpmenu ;;
+			"c") settingsmenu ;;
+			"f") servicecontrol "proftpd" ;;
+			"l") xtermrun "DAMP LOGS" "tail -f -n 5 $HOME/www/log/*/*.log $HOME/www/domains/*/log/*.log" ;;
+			"") exit ;;
+		esac
+		RENDER_MENU
+	}
+	RENDER_MENU
+}
+

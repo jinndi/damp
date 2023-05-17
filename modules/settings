@@ -1,0 +1,98 @@
+#!/bin/bash
+
+settingsmenu()
+{
+	clear
+	OPTIONMENUSETTINGS=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu  "\n $D_MENUCFG" 20 60 10 \
+	"Ⓛ" " $D_LANGUAGE" \
+	"Ⓣ" " $D_THEME" \
+	3>&1 1>&2 2>&3)
+	exitstatus=$?
+	if [ $exitstatus = 0 ]  
+	then
+		case $OPTIONMENUSETTINGS in
+			"Ⓛ") languagemenu ;;
+			"Ⓣ") thememenu ;;
+			*) settingsmenu ;;
+		esac
+	else
+     	menu
+	fi
+	settingsmenu
+}
+
+languagemenu()
+{
+	clear
+	OPTIONMENULANGUAGE=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu  "\n $D_LANGUAGESELECT" 20 60 10 \
+	"🇬🇧" " $D_ENGLISH" \
+	"🇷🇺" " $D_RUSSIAN" \
+	3>&1 1>&2 2>&3)
+	exitstatus=$?
+	if [ $exitstatus = 0 ]  
+	then
+		case $OPTIONMENULANGUAGE in
+			"🇬🇧") languagechange "en" ;;
+			"🇷🇺") languagechange "ru" ;;
+			*) settingsmenu ;;
+		esac
+	else
+     	settingsmenu
+	fi
+	settingsmenu
+}
+
+languagechange()
+{
+	clear
+	wrun + "$D_CHANGELANGUAGE"
+	changeconf "^\s*language" "$rootdir/DAMP.conf" "language=$1" &>/dev/null
+	sleep 3
+	wrun -
+	initcfg
+	clear
+	print_status "$D_LANGUAGECHANGE $1"
+}
+
+thememenu()
+{
+	clear
+	OPTIONMENUTHEME=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu  "\n $D_THEMESELECT" 20 60 10 \
+	"Ⓓ" " $D_DEFAULT" \
+	"Ⓑ" " $D_BLACK" \
+	"Ⓖ" " $D_GREEN" \
+	"Ⓛ" " $D_LIGHT" \
+	3>&1 1>&2 2>&3)
+	exitstatus=$?
+	if [ $exitstatus = 0 ]  
+	then
+		case $OPTIONMENUTHEME in
+			"Ⓓ") themechange "default" ;;
+			"Ⓑ") themechange "black" ;;
+			"Ⓖ") themechange "green" ;;
+			"Ⓛ") themechange "light" ;;
+			*) settingsmenu ;;
+		esac
+	else
+     	settingsmenu
+	fi
+	settingsmenu	
+}
+
+themechange()
+{
+	clear
+	wrun + "$D_CHANGETHEME"
+	changeconf "^\s*theme" "$rootdir/DAMP.conf" "theme=$1" &>/dev/null
+	sleep 3
+	wrun -
+	initcfg
+	clear
+	print_status "$D_THEMECHANGE $1"
+}

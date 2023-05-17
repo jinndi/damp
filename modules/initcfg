@@ -1,0 +1,27 @@
+#!/bin/bash
+
+initcfg()
+{
+	resize -s 26 68 &>/dev/null
+	stty rows 26 cols 68 &>/dev/null
+	language="en"
+	theme="default"
+
+	if [ ! -f "$rootdir/DAMP.conf" ]; then
+		echo "Program settings file DAMP.conf is missing, please reinstall the package!"
+		$SHELL
+	fi
+	source "$rootdir/DAMP.conf"
+
+	if [ ! -f "$rootdir/locales/$language" ]; then
+		echo "Language file at locales/$language is missing, reinstall package or check settings!"
+		$SHELL	
+	fi
+	source "$rootdir/locales/$language"
+
+	if [ ! -f "$rootdir/themes/$theme" ]; then
+		echo "Theme file at themes/$theme is missing, reinstall package or check settings!"
+		$SHELL
+	fi
+    applytheme
+}

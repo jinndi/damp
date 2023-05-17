@@ -1,0 +1,35 @@
+#!/bin/bash
+
+configedit()
+{
+	clear
+	case "$1" in
+		"apache2") 
+			clear
+			xtermrun "APACHE CONFIG" "mcedit /etc/apache2/apache2.conf"	
+		;;
+		"mariadb") 
+			clear
+			xtermrun "MARIADB CONFIG" "mcedit /etc/mysql/mariadb.conf.d/50-server.cnf"	
+		;;
+		"mysql") 
+			clear
+			xtermrun "MYSQL CONFIG" "mcedit /etc/mysql/mysql.conf.d/mysqld.cnf"	
+		;;
+		"PHP") 
+			clear
+			xtermrun "PHP CONFIG" "mcedit $2"	
+		;;	
+		"proftpd") 
+			clear
+			xtermrun "FTP CONFIG" "mcedit /etc/proftpd/conf.d/$urun.conf"	
+		;;
+		"docker") 
+			clear
+			xtermrun "DOCKER CONFIG" "mcedit /etc/docker/daemon.json"	
+		;;
+		*)
+			clear
+			xtermrun "$1 CONFIG" "mcedit /etc/apache2/sites-available/$1"	
+	esac
+}

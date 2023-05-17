@@ -1,0 +1,30 @@
+#!/bin/bash
+
+isdocker-ce()
+{
+	if [ "$(isset 'docker-ce')" = "OFF" ]
+	then
+		print_status "$D_INSTALL Docker"
+		apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 2>/dev/null 
+        groupadd docker
+        usermod -aG docker "$urun"
+		isdocker 'install'
+	else
+		dockerv=$(docker -v)
+		print_success " Docker $D_INSTALLED " "$dockerv"
+	fi
+}
+
+removedocker-ce()
+{
+	print_status "$D_MAKEREMOVE Docker"
+	apt autopurge docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras -y 2> /dev/null
+	if (whiptail --title  " $D_ATTENTION " --yesno "$D_DELITEIMAGES" 8 60)  
+	then
+        print_status "$$D_DELITEIMAGES"    
+        rm -rf /var/lib/docker
+        rm -rf /var/lib/containerd
+    fi
+	print_status "Docker $D_DELITING"
+}
+

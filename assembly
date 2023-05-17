@@ -1,0 +1,38 @@
+
+#!/bin/bash
+
+isset()
+{
+	I=$(dpkg --get-selections | grep -P "^$1\s" | grep -v deinstall)
+	if [ -n "$I" ]; then
+		echo "ON"
+	else
+		echo "OFF"
+	fi
+}
+
+if [ "$(isset 'ruby-full')" = "OFF" ]; then
+    echo -n "apt update "
+    sudo apt update &>/dev/null
+    echo -n "ok"
+    echo -n "apt install ruby-full "
+    sudo apt install ruby-full -y &>/dev/null
+    echo -n "ok"
+fi
+
+if [ -z "$(fpm -v 2>/dev/null)" ]; then
+    echo -n "install fpm "
+    sudo gem install fpm
+    echo -n "ok"
+fi
+
+if [ -f *.deb ]; then
+    echo "Delete $(echo *.deb) ? "
+    sudo rm *.deb
+fi
+
+fpm
+
+clear
+echo "Your deb package is ready!"
+sleep 5

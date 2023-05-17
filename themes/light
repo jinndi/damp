@@ -1,0 +1,24 @@
+root=blue,brightblue            #root fg, bg
+border=white,white              #border fg, bg
+window=blue,white               #window fg, bg
+shadow=blue,blue                #shadow fg, bg
+title=white,blue                #title fg, bg
+button=white,blue               #button fg, bg
+actbutton=blue,blue             #active button fg, bg
+checkbox=blue,white         	#checkbox fg, bg
+actcheckbox=white,red           #active checkbox fg, bg
+entry=blue,lightgray            #entry box fg, bg
+disentry=blue,white             #disabled entry fg, bg
+listbox=magenta,white           #listbox fg, bg
+actlistbox=white,black          #active listbox fg, bg
+textbox=blue,white              #textbox fg, bg
+acttextbox=blue,black           #active textbox fg, bg
+helpline=blue,brightgreen       #help line
+label=blue,green                #label fg, bg
+roottext=green                  #root text
+emptyscale=green                #scale full
+fullscale=green                 #scale empty
+compactbutton=white,brightblue  #compact button fg, bg
+actsellistbox=blue              #active & sel listbox
+sellistbox=blue                 #selected listbox
+

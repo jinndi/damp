@@ -1,0 +1,95 @@
+#!/bin/bash
+
+phpmenu ()
+{
+	clear
+	declare -a menver=()
+	mapfile -t cverarr < <(/usr/sbin/phpquery -V)
+	if [ "${#cverarr[*]}" -gt "1" ]; then
+		menver+=( " ◉ " "$D_PHPCHANGEVERSION" )
+	fi
+	v_php=$(php -r 'echo phpversion();')
+	activver=$(echo $v_php | grep -oP "\d\.\d")
+
+	inifile="/etc/php/$activver/apache2/php.ini"
+	if [ -f "$inifile" ]; then
+		menver+=( " ☶ " "$D_PHPCONFIGOPEN" )
+	fi
+
+	menver+=( " ✲ " "$D_PHPMODULEMANAGEMENT" )
+
+	OPTIONPHP=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu "\n  $D_ACTIONS: PHP $v_php" 20 60 10 \
+	"${menver[@]}" 3>&1 1>&2 2>&3)
+
+	exitstatus=$?
+
+	if [ $exitstatus = 0 ]  
+	then
+		case $OPTIONPHP in
+			" ◉ ") 
+				clear
+				update-alternatives --config php 
+				activ=$(php -r 'echo phpversion();'| grep -oP "\d\.\d")
+				a2dismod -q php7.4 php8.0 php8.1 php8.2 2> /dev/null
+				a2enmod -q "php$activ" 2> /dev/null
+				systemctl restart apache2 2> /dev/null
+			;;
+			" ☶ ") configedit "PHP" "$inifile" ;;
+			" ✲ ") phpmodules "$activver" ;;
+		esac
+	else
+     	menu
+	fi
+	phpmenu 
+}
+
+phpmodules()
+{
+	clear
+	wrun + "$D_GETTINGDATAPHP"
+	# сохраняем вывод apt-cache search в переменную
+	output=$(apt-cache search "php$1-")
+	# разбиваем вывод на строки и сохраняем в массив
+	mapfile -t lines <<< "$output"
+	declare -a moduleslist
+	declare -a modules
+	for line in "${lines[@]}"
+	do
+		pkgname=$(echo "$line" | grep -vP "^php.+((\-dbgsym)|(uploadprogress))\s" | grep -oP "(?<=^php$1-)[^\s]+")
+		pkginfo=$(echo "$line" | grep -vP "^php.+((\-dbgsym)|(uploadprogress))\s" | grep -oP "(?<=^php$1-).+" | grep -oP "\s+.+" | sed 's/[[:blank:]]\{2,\}/ /g' | cut -c1-33 )
+		if [ -n "$pkgname" ]; then
+			pkgnamefull="php${1}-${pkgname}"
+			moduleslist+=( "$pkgname" "$pkginfo" "$(isset "$pkgnamefull")" )
+			modules+=( "$pkgname" )
+		fi
+	done
+	wrun -
+	MODULE=$(whiptail --title  " ✲ $D_PHPMODULESELECT " --checklist \
+	--ok-button  "  $D_READY [Enter] " --cancel-button  " $D_BACK [ESC] " "$D_PHPMODULEINFO" 20 60 10 \
+	"${moduleslist[@]}" 3>&1 1>&2 2>&3)	
+	exitstatus=$?
+
+	if [ $exitstatus = 0 ]  
+	then
+		clear
+		for name in "${modules[@]}"
+		do
+			pkgnamefull="php${1}-${name}"
+			if echo "${MODULE[@]}" | grep -qoP "\"$name\""; then
+				if [ "$(isset "$pkgnamefull")" = "OFF" ]; then				
+					progresss "$(apt install "$pkgnamefull" -y 2> /dev/null)" " ✅ $D_INSTALL $pkgnamefull "
+				fi
+			else
+				if [ "$(isset "$pkgnamefull")" = "ON" ]; then
+					progresss "$(apt autopurge "$pkgnamefull" -y 2> /dev/null)" " ❌ $D_MAKEREMOVE $pkgnamefull "
+				fi
+			fi
+		done
+		phpmodules "$1"
+	else
+     	phpmenu
+	fi
+}
+

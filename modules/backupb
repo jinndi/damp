@@ -1,0 +1,123 @@
+#!/bin/bash
+
+backupmenubase()
+{
+	clear
+	namebase="$(echo "$1" | tr "." "_")"
+	gosql "CREATE DATABASE IF NOT EXISTS $namebase"
+
+	declare -a chekbackups=("+ $D_BACKUPADDBASE" "" "" "")
+	
+	if ! [ -d "$HOME/www/backups/bases/$1" ]; then
+		mkdir -p "$HOME/www/backups/bases/$1" &&
+		chmod -R 0775 "$HOME/www/backups/bases/"
+	fi
+        mapfile -t backups < <(cd "$HOME/www/backups/bases/$1" && ls 2>/dev/nul)
+
+	for backup in "${backups[@]}" 
+	do
+		sizeb=$(stat -c %s "$HOME/www/backups/bases/$1/$backup")
+		sizek=$((sizeb/1024))
+		if [ $sizek -gt 1024 ]; then
+			sizeecho=" | $((sizek/1024))МB"
+		else
+			sizeecho=" | $sizekКB"
+		fi
+		chekbackups+=("$backup" "$sizeecho")
+	done
+
+	OPTIONBKPB=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu  "\n  $D_BACKUPBASESITE: $1" 20 60 10 \
+	"${chekbackups[@]}" 3>&1 1>&2 2>&3)
+ 	
+	exitstatus=$?
+	
+	if [ $exitstatus = 0 ]  
+	then
+		if [ "$OPTIONBKPB" =  "+ $D_BACKUPADDBASE" ]; then
+			backupaddbase "$1"
+		else 
+			if [ "$OPTIONBKPB" =  "" ]; then
+				backupmenubase "$1"
+			fi
+			backupactionsbase "$OPTIONBKPB" "$1"
+		fi
+	else
+     	siteactions "$1"
+	fi
+}
+
+
+backupactionsbase()
+{
+	clear
+	OPTIONBACKUP=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu  "\n$D_BACKUPCOPYBASE $2 от $1" 20 60 10 \
+	" ◲ " "$D_BACKUPBASERESTORY" \
+	" ✘ " "$D_BACKUPBASEDELITE" \
+	3>&1 1>&2 2>&3)
+	exitstatus=$?
+	
+	if [ $exitstatus = 0 ]  
+	then
+		case $OPTIONBACKUP in
+			" ◲ ") restorebakupbase "$1" "$2" ;;
+			" ✘ ") deletebakupbase "$1" "$2";;
+		esac
+	else
+     	sitescontrol
+	fi
+	siteactions "$2"
+}
+
+basedump()
+{
+	mysqldump --defaults-file="/etc/mysql/debian.cnf" "$1" > "$2"
+}
+
+baserestore()
+{
+	startmariadb
+	echo "ОК" && mysql --defaults-file="/etc/mysql/debian.cnf" "$1" < "$2"
+}
+
+
+backupaddbase()
+{
+	clear
+	namebase="$(echo "$1" | tr "." "_")"
+	taim=$(date +"%d.%m.%Y_%T")
+	basedump "$namebase" "$HOME/www/backups/bases/$1/$taim"
+	progresss " " " 📚 $D_BACKUPBASESITECREATE $namebase..."
+	backupmenubase "$1"
+}
+
+restorebakupbase()
+{
+	clear
+	namebase="$(echo "$2" | tr "." "_")"
+
+	if (whiptail --title  " $D_ATTENTION " --yesno "https://$2 date $1 - $D_BACKUPRESTORYBASEINFO" 10 60)  
+	then
+		baserestore "$namebase" "$HOME/www/backups/bases/$2/$1"
+		progresss " " " ◲  $D_BACKUPRESTORYBASEGO $2... "
+		whiptail --title  " $D_BACKUPRESTORYBASEOK " --msgbox  "https://$2 date $1 - $D_BACKUPRESTORYBASEBOX" 10 60
+	fi
+	backupmenubase "$2"
+}
+
+
+deletebakupbase()
+{
+	clear
+	if (whiptail --title  " $D_ATTENTION " --yesno "https://$2 date $1 - $D_BACKUPDELITEBASEINFO" 10 60) 
+	then
+		cmd="$(rm -vfr "$HOME/www/backups/bases/$2/$1")"
+		progresss "$cmd" " ✘  $D_BACKUPDELITEBASEGO $1... "
+	fi
+	backupmenubase "$2"
+}
+
+

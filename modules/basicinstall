@@ -1,0 +1,254 @@
+#!/bin/bash
+
+ishosts()
+{
+	if grep -qP "^127\.0\.0\.1\s+$SITENAME\s+www\.$SITENAME" /etc/hosts
+  	then			
+  		echo "$D_RECORDEXISTS"
+  		sleep 1
+	else
+		echo "$D_RECORDADDHOSTS"
+		echo "127.0.0.1 $SITENAME www.$SITENAME" | tee -a /etc/hosts > /dev/null
+		sleep 1
+		ishosts
+	fi
+}
+
+basecreate()
+{
+	if [ "$(isset 'mariadb-server')" = "ON" ]; then
+		namebase="$(echo "$SITENAME" | tr "." "_")"
+		echo -n "$D_BASECREATE $namebase ..." && sleep 2
+		sleep 1 && gosql "CREATE DATABASE IF NOT EXISTS $namebase"
+	fi
+}
+
+vhconfadd()
+{
+	if [ -f "/etc/apache2/sites-available/$SITENAME.conf" ]; then
+		if (whiptail --title  " $D_VHCONFIGEXISTS " --yesno  "$SITENAME - $D_VHCONFIGREWRITEYN" 10 60)  then
+			echo "$D_VHCONFIGREWRITEY $SITENAME" && sleep 1
+		else
+     		echo "$D_VHCONFIGREWRITEN" && sleep 1
+			return
+		fi
+	fi
+	echo -n "$D_VHCONFIGADD"
+	echo "
+<VirtualHost *:80>
+ServerName $SITENAME
+ServerAlias www.$SITENAME
+Redirect permanent / https://$SITENAME/
+</VirtualHost>
+<VirtualHost *:443>
+ServerName $SITENAME
+ServerAlias www.$SITENAME
+ServerAdmin webmaster@$SITENAME
+DocumentRoot $SITEPATH/public_html
+ErrorLog $SITEPATH/log/error.log
+CustomLog $SITEPATH/log/access.log combined
+<Directory $SITEPATH>
+Require all denied
+</Directory>
+<Directory $SITEPATH/public_html>
+Options Indexes FollowSymLinks
+AllowOverride All
+Require all granted
+</Directory>
+<IfModule mod_ssl.c>
+SSLEngine on
+SSLCertificateFile $SITEPATH/ssl/$SITENAME-cert.pem
+SSLCertificateKeyFile $SITEPATH/ssl/$SITENAME-key.pem
+</IfModule>
+php_admin_value default_charset UTF-8
+php_admin_flag display_errors 1
+php_admin_flag log_errors 1
+php_admin_value max_execution_time 600
+php_admin_value memory_limit 256M
+php_admin_value post_max_size 50M
+php_admin_value upload_max_filesize 300M
+php_admin_value sys_temp_dir $SITEPATH/temp
+php_admin_value upload_tmp_dir $SITEPATH/temp
+php_admin_value session.save_path $SITEPATH/session
+php_admin_flag session.gc_probability  1
+php_admin_value session.gc_maxlifetime 604800
+php_admin_value session.cookie_lifetime 604800
+</VirtualHost>
+" | tee "/etc/apache2/sites-available/$SITENAME.conf" > /dev/null
+	sleep 1 && echo " OK."
+	echo -n "$D_VHCONFIGACTIVATION"
+	a2ensite "$SITENAME" > /dev/null
+	sleep 1 && echo " OK."
+}
+
+foldercreate()
+{
+	if ! [ -d "$HOME/www/log" ]; then
+		echo "$D_CREATELOGFOLDER"
+		mkdir -p "$HOME/www/log" && sleep 1
+
+		APACHE_LOG_DIR=$(findparamondir "/etc/apache2/" "[^{]APACHE_LOG_DIR" "\/[^$]+")
+		if [ -d "$APACHE_LOG_DIR" ]; then
+			echo "$D_CREATELINKONLOG Apache"	
+			ln -s "$APACHE_LOG_DIR" -t "$HOME/www/log/" && sleep 1	
+		else
+			if [ -d "/var/log/apache2"  ]; then
+				echo "$D_CREATELINKONLOG Apache"	
+				ln -s "/var/log/apache2" -t "$HOME/www/log/" && sleep 1		
+			fi	
+		fi
+		MYSQL_LOG_DIR=$(findparamondir "/etc/mysql/" "log-error" "\/[^\s]+\/")
+		if [ -d "$MYSQL_LOG_DIR" ]; then
+			echo "$D_CREATELINKONLOG MariaDB"	
+			ln -s "$MYSQL_LOG_DIR" -t "$HOME/www/log" && sleep 1	
+		else
+			if [ -d "/var/log/mysql"  ]; then
+				echo "$D_CREATELINKONLOG MariaDB"	
+				ln -s "/var/log/mysql" -t "$HOME/www/log/" && sleep 1		
+			fi	
+		fi
+		if [ -d "/var/log/proftpd"  ]; then
+			echo "$D_CREATELINKONLOG FTP"	
+			ln -s "/var/log/proftpd" -t "$HOME/www/log/" && sleep 1		
+		fi	
+	fi
+
+	if [ -d "$SITEPATH" ]; then
+		if (whiptail --title  " $D_FOLDEREXISTS " --yesno  "$SITEPATH - $D_FOLDEREXISTSYN" 10 60)  then
+			echo "$D_FOLDERREWRIT" && sleep 1
+		else
+     		echo "$D_FOLDEROK" && sleep 1
+			return
+		fi
+	fi
+	echo "$D_FOLDERSCREATE ~/www/domains/$SITENAME/..." && sleep 1
+	mkdir -p "$SITEPATH/public_html" && echo " $SITENAME/public_html" && 
+	mkdir -p "$SITEPATH/log" && echo " $SITENAME/log" && 
+	mkdir -p "$SITEPATH/session" && echo " $SITENAME/session" && 
+	mkdir -p "$SITEPATH/ssl" && echo " $SITENAME/ssl" && 
+	mkdir -p "$SITEPATH/temp" && echo " $SITENAME/temp" && 
+	chmod -R 777 "$HOME/www" && sleep 1
+}
+
+assignrights()
+{	
+	chown -R www-data:www-data "$HOME/www/domains/$SITENAME/public_html" && 
+	chown -R www-data:www-data "$HOME/www/domains/$SITENAME/session" && 
+	chown -R www-data:www-data "$HOME/www/domains/$SITENAME/temp" && 
+	echo -n "$D_ASSIGNOWNER" && sleep 2 && echo " OK." &&
+	chmod -R 0755 "$HOME/www" && 
+	chmod -R 0775 "$HOME/www/domains/$SITENAME/public_html" && 
+	chmod g+s "$HOME/www/domains/$SITENAME/public_html" && 
+	echo -n "$D_ASSIGNRIGHTS" && sleep 2 && echo " OK."
+	sleep 4
+}
+
+sslcertadd()
+{
+	echo -n "$D_INSTALL SSL..." && sleep 2
+	# https://github.com/FiloSottile/mkcert
+	su "$urun" -c "mkcert -install 2>/dev/null"
+	mkcert -key-file "$SITEPATH/ssl/$SITENAME-key.pem" -cert-file "$SITEPATH/ssl/$SITENAME-cert.pem" "$SITENAME" "www.$SITENAME" 2>/dev/null 
+	sleep 1 && echo " OK."
+}
+
+htaccessadd()
+{
+	echo -n "$D_HTAADD"
+    cat <<HTA > "$SITEPATH/public_html/.htaccess" 
+# deny from all
+HTA
+	sleep 1 && echo " OK."
+}
+
+indexadd()
+{
+adminerpkg=""
+if [ "$(isset 'adminer')" = "ON" ]; then
+adminerpkg="&nbsp;|&nbsp;<li class='nav-item'>
+<a class='badge text-bg-info' href='/adminer'>Adminer</a>
+</li>"
+fi
+phpmyadminpkg=""
+if [ "$(isset 'phpmyadmin')" = "ON" ]; then
+phpmyadminpkg="&nbsp;|&nbsp;<li class='nav-item'>
+<a class='badge text-bg-info' href='/phpmyadmin'>phpMyAdmin</a>
+</li>"
+fi
+echo -n "$D_INDEXADD"
+cat <<INX > "$SITEPATH/public_html/index.php"
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Success! $SITENAME working!</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container">
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
+<div class="container-fluid">
+<a class="navbar-brand text-primary" href="index.php">$SITENAME</a>
+<div class="collapse navbar-collapse" id="navbarNav">
+<ul class="navbar-nav">
+<li class="nav-item">
+<a class="nav-link badge text-bg-primary" href="#">PHPinfo</a>
+</li>
+$adminerpkg
+$phpmyadminpkg
+</ul>
+</div>
+</div>
+</nav>
+<div class="row">
+<div class="col">
+<br><br>
+<?php phpinfo(); ?>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>
+INX
+	sleep 1 && echo " OK."
+}
+
+endrunfull()
+{
+	whiptail --title  " 🎉 $D_READY " --msgbox  "$D_INSTALLEND https://$SITENAME" 10 60
+	xtermrun "$SITEPATH" "mc $SITEPATH"
+	su "$urun" -c "xdg-open https://$SITENAME"
+	sleep 3
+	menu
+}
+
+basicinstall()
+{
+	clear
+	if (whiptail --title  " $D_ATTENTION " --yesno "$D_INSTALLINFO" 15 60)  
+	then
+		sitein 'localhost'	
+		isapache2			
+		isphp				
+		ismariadb-server
+		isadminer			
+		isproftpd-core		
+		iscomposer			
+		isnodejs		
+		isgit			
+		ishosts
+		vhconfadd
+		foldercreate
+		basecreate
+		sslcertadd
+		htaccessadd
+		indexadd
+		assignrights
+		restart 'apache2'
+		endrunfull
+		menu 
+	fi
+	menu
+}

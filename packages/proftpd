@@ -1,0 +1,88 @@
+#!/bin/bash
+
+isproftpd-core()
+{
+	if [ "$(isset 'proftpd-core')" = "OFF" ]
+	then
+		print_status "$D_INSTALL FTP server"
+		apt install -y proftpd-core proftpd-mod-crypto 2>/dev/null
+		echo -n "- $D_CONFIGURING /etc/proftpd/conf.d/$urun.conf"
+		echo "
+LoadModule mod_tls.c
+LoadModule mod_sftp.c
+<VirtualHost 127.0.0.1>
+Port               21
+DefaultRoot        ~/www
+AllowOverwrite     yes
+ExtendedLog        /var/log/proftpd/ftp-access.log WRITE,READ write
+ExtendedLog        /var/log/proftpd/ftp-auth.log AUTH auth
+TLSEngine                 on
+TLSLog                    /var/log/proftpd/tls.log
+TLSProtocol               SSLv23 TLSv1.2
+TLSRSACertificateFile     /etc/proftpd/ftps-cert.pem
+TLSRSACertificateKeyFile  /etc/proftpd/ftps-key.pem
+TLSOptions				  AllowClientRenegotiations
+TLSVerifyClient           off
+TLSRequired               off
+</VirtualHost>
+<VirtualHost 127.0.0.1>
+Port            2222
+DefaultRoot     ~/www
+AllowOverwrite  yes
+SFTPEngine      on
+SFTPLog         /var/log/proftpd/sftp.log
+SFTPHostKey     /etc/ssh/ssh_host_rsa_key
+SFTPHostKey     /etc/ssh/ssh_host_dsa_key
+SFTPHostKey     /etc/ssh/ssh_host_ecdsa_key
+SFTPAuthMethods password 
+SFTPCompression off
+</VirtualHost>
+" | tee "/etc/proftpd/conf.d/$urun.conf" > /dev/null
+		sleep 1 && echo " OK."
+		echo -n "$D_INSTALL SSL..."
+		sleep 2
+		su "$urun" -c "mkcert -install 2>/dev/null" 
+		sleep 1
+		mkcert -key-file "/etc/proftpd/ftps-key.pem" -cert-file "/etc/proftpd/ftps-cert.pem" "localhost" "127.0.0.1" 2>/dev/null 
+		chmod 0600 "/etc/proftpd/ftps-key.pem" 2>/dev/null 
+		sleep 1 && echo " OK."
+		echo -n "$D_CONFIGURING SFTP" 
+		chown root:root "$HOME" &> /dev/null
+		sudo chmod 755 "$HOME" &> /dev/null
+		sleep 1 
+		echo -n "- $D_INSTALL SSH" 
+		apt install ssh ssh-keygen -y 2> /dev/null
+		mkdir /etc/ssh &> /dev/null
+		ssh-keygen -A &> /dev/null
+		sleep 1 && echo " OK."
+		echo -n "$D_CONFIGURING ufw" 
+		ufw allow 20/tcp &> /dev/null
+		ufw allow 21/tcp &> /dev/null
+		ufw allow 22/tcp &> /dev/null
+		ufw allow 2222/tcp &> /dev/null
+		ufw reload &> /dev/null
+		sleep 1 && echo " OK."
+		systemctl restart proftpd &> /dev/null
+		systemctl restart ssh &> /dev/null
+		ln -s "/var/log/proftpd" -t "$HOME/www/log/" &> /dev/null
+		isproftpd-core 'install'
+	else
+		proftpdv=$(proftpd -v)
+		print_success " FTP server $D_INSTALLED " "$proftpdv"
+
+		if [ -z "$1" ] && (whiptail --title  " FTP server $D_INSTALLED " --yesno  "$D_REINSTALLY FTP server?\n$proftpdv" 10 60)  then
+			print_status "$D_REINSTALL FTP server "
+			removeproftpd-core
+			print_status "FTP server $D_REMOVEDY"
+			isproftpd-core
+		fi
+	fi
+}
+
+removeproftpd-core()
+{
+	stop 'proftpd'
+	print_status "$D_MAKEREMOVE FTP server"
+	apt autopurge proftpd-core -y 2> /dev/null 
+	print_status "FTP server $D_DELITING"
+}

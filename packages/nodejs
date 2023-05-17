@@ -1,0 +1,28 @@
+#!/bin/bash
+
+isnodejs()
+{
+	if [ "$(isset 'nodejs')" = "OFF" ]
+	then
+		print_status "$D_INSTALL Nodejs"
+		apt install -y nodejs 2>/dev/null 
+		isnodejs 'install'
+	else
+		nodev=$(node -v)
+		print_success " Nodejs $D_INSTALLED " "$nodev"
+
+		if [ -z "$1" ] && (whiptail --title  " Nodejs $D_INSTALLED " --yesno  "$D_REINSTALLY Nodejs?\n\n$nodev" 10 60)  then
+			print_status "$D_REINSTALL Nodejs"
+			removenodejs
+			print_status "nodejs $D_REMOVEDY"
+			isnodejs
+		fi
+	fi
+}
+
+removenodejs()
+{
+	print_status "$D_MAKEREMOVE Node.js"
+	apt autopurge nodejs -y 2> /dev/null	
+	print_status "Node.js $D_DELITING"
+}

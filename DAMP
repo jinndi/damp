@@ -1,0 +1,28 @@
+#!/bin/bash
+# shellcheck source=/dev/null
+D_NAMESOFT=" 💧 DAMP v.0.1.0 ($USER) "
+# Checking the root directory of the program
+rootdir="/opt/DAMP"
+if [ -f DAMP.conf ]; then
+	rootdir="."
+fi
+# load modules
+mapfile -t modules < <(ls -f -- $rootdir/modules/* 2>/dev/null)
+for module in "${modules[@]}" 
+do
+	source "$module"	   
+done
+# initializing settings
+initcfg 
+# checking dependencies
+checkdependencies 
+# load package functons
+mapfile -t packages < <(ls -f -- $rootdir/packages/*.sh 2>/dev/null)
+for package in "${packages[@]}" 
+do
+	source "$package"	  
+done
+
+login	# login form
+menu   # main menu display
+

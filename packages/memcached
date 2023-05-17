@@ -1,0 +1,21 @@
+#!/bin/bash
+
+ismemcached()
+{
+	if [ "$(isset 'memcached')" = "OFF" ]
+	then
+		print_status "$D_INSTALL Memcached"
+		apt install -y memcached 2>/dev/null 
+		isredis 'install'
+	else
+		memcachedv=$(memcached --version)
+		print_success " Memcached $D_INSTALLED " "$memcachedv"
+	fi
+}
+
+removememcached()
+{
+	print_status "$D_MAKEREMOVE Memcached"
+	apt autopurge memcached -y 2> /dev/null 
+	print_status "Memcached $D_DELITING"
+}

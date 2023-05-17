@@ -1,0 +1,63 @@
+#!/bin/bash
+
+pkglist()
+{
+	declare -ag pkg=()
+
+	addlist(){
+		pkg+=( "$1" "$2: $(getV $1)" "$(isset $1)" )
+	}
+
+	addlist "apache2"			"Apache"
+	addlist "php8.2"			"PHP"
+	addlist "php7.4"			"PHP"
+	addlist "mariadb-server"	"MariaDB"
+	addlist "adminer" 			"Adminer"
+	addlist "phpmyadmin" 		"phpMyAdmin"
+	addlist "proftpd-core"		"FTP server"
+	addlist "composer" 			"Composer"
+	addlist "nodejs" 			"Node.js"
+	addlist "git" 				"Git"
+	addlist "ruby" 				"Ruby"	
+	addlist "docker-ce" 		"Docker"
+	addlist "redis" 			"Redis"
+	addlist "memcached" 		"Memcached"	
+}
+
+
+pkgcontrol()
+{
+	clear
+	wrun + "$D_UPDATEDATAREPO"
+	apt update &>/dev/null
+	wrun -
+	wrun + "$D_GETTINGDATAPKG"
+	pkglist
+	wrun -	
+	DISTROS=$(whiptail --title  " 🔲 $D_PKGMANAGEMENT " --checklist \
+	--ok-button  " $D_READY [Enter] " --cancel-button  " $D_BACK [ESC] " "$D_PKGINFOINST" 20 60 10 \
+	"${pkg[@]}" 3>&1 1>&2 2>&3)	
+	exitstatus=$?
+
+	if [ $exitstatus = 0 ];  then
+		clear
+		for (( i=0; i<${#pkg[@]}; i+=3 ))
+		do
+			if echo "${DISTROS[@]}" | grep -qoP "\"${pkg[@]:$i:1}\""; then
+				if [ "$(isset "${pkg[@]:$i:1}")" = "OFF" ]; then			
+					install="is${pkg[@]:$i}"
+					${install} 'install' "${pkg[@]:$i:1}"
+				fi
+			else
+				if [ "$(isset "${pkg[@]:$i:1}")" = "ON" ]; then
+					remove="remove${pkg[@]:$i}"
+					${remove} "${pkg[@]:$i:1}"
+				fi
+			fi
+		done
+		pkg=()
+	else
+		menu
+	fi
+	pkgcontrol
+}

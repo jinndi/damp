@@ -1,0 +1,21 @@
+#!/bin/bash
+
+isruby()
+{
+	if [ "$(isset 'ruby')" = "OFF" ]
+	then
+		print_status "$D_INSTALL Ruby"
+		apt install -y ruby-full 2>/dev/null 
+		isruby 'install'
+	else
+		rubyv=$(ruby -v)
+		print_success " Ruby $D_INSTALLED " "$rubyv"
+	fi
+}
+
+removeruby()
+{
+	print_status "$D_MAKEREMOVE Ruby"
+	apt autopurge ruby* -y 2> /dev/null	
+	print_status "Ruby $D_DELITING"
+}

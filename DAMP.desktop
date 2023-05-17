@@ -1,0 +1,16 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=0.1
+Name=DAMP
+Name[ru]=DAMP
+Comment=Local web development management program
+Comment[ru]=Программа управления локальной веб разработкой
+GenericName=DAMP (Debian Apache Mariadb Php) is your faithful console assistant in local web development.
+GenericName[ru]=DAMP (Debian Apache Mariadb Php) - ваш верный консольный помощник в локальной веб разработке.
+Exec=/opt/DAMP/DAMP
+Icon=/opt/DAMP/icon.png
+Terminal=true
+Type=Application
+Categories=Network;Development;
+Keywords=Openserver;LAMP;DAMP;
+MimeType=x-scheme-handler/DAMP;

@@ -1,0 +1,34 @@
+#!/bin/bash
+
+isphpmyadmin()
+{
+	if [ "$(isset 'phpmyadmin')" = "OFF" ]
+	then
+		if [ "$(isset 'mariadb-server')" == "OFF" ] || [ "$(isset 'apache2')" == "OFF" ] || [ "$(isset 'php\d\.\d')" = "OFF" ]
+		then
+			whiptail --title  " $D_ATTENTION" --msgbox  "$D_PHPMYADMINDEPENCALERT" 10 60
+			return
+		fi
+		start 'mariadb'
+		print_status "$D_INSTALL phpMyAdmin"
+		apt install -y phpmyadmin 2>/dev/null 
+		sleep 1
+		restart 'apache2'
+		isphpmyadmin 'install'
+	else
+		phpmyadminv=$(getV 'phpmyadmin')
+		print_success " phpMyAdmin $D_INSTALLED " "phpMyAdmin version: $phpmyadminv"
+
+     	su "$urun" -c "xdg-open http://localhost/phpmyadmin"
+	fi
+}
+
+removephpmyadmin()
+{
+	stop 'apache2'
+	start 'mariadb'
+	print_status "$D_MAKEREMOVE phpMyAdmin"
+	apt autopurge phpmyadmin -y 2> /dev/null 
+	start 'apache2'
+	print_status "phpMyAdmin $D_DELITING"
+}

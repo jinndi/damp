@@ -1,0 +1,19 @@
+#!/bin/bash
+
+login()
+{
+	isroot="$(echo "$USER" | grep -oP "^root$")"
+	if [ -n "$isroot" ]; then
+		return
+	fi
+	PASS="$(whiptail --title  " 🔑 $D_PASSTITLE " --passwordbox  "\n$D_PASSBOX" 10 60 3>&1 1>&2 2>&3)"
+	exitstatus=$?
+	UR="$(echo "$PASS" | sudo -S id | grep "(root)")"
+	if [ $exitstatus = 0 ] && [ -n "$UR" ];  then
+		export urun="$USER"
+		sudo -s -E bash "${0}"
+		exit
+	else
+   		login
+	fi
+}

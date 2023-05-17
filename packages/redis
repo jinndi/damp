@@ -1,0 +1,20 @@
+#!/bin/bash
+
+isredis()
+{
+	if [ "$(isset 'redis')" = "OFF" ]
+	then
+		print_status "$D_INSTALL Redis"
+		apt install -y redis 2>/dev/null 
+		isredis 'install'
+	else
+		redisv=$(redis-cli -v)
+		print_success " Redis $D_INSTALLED " "$redisv"
+	fi
+}
+
+removeredis()
+{
+	print_status "$D_MAKEREMOVE Redis"
+	apt autopurge redis -y 2> /dev/null 
+}

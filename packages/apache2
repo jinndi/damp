@@ -1,0 +1,55 @@
+#!/bin/bash
+
+isapache2()
+{
+	if [ "$(isset 'apache2')" = "OFF" ]
+	then
+		print_status "$D_INSTALL Apache:"
+		apt install -y apache2 2>/dev/null 
+		changeconf "^\s*ServerName" "/etc/apache2/apache2.conf" "ServerName localhost"
+		usermod -a -G www-data "$urun" &> /dev/null
+		a2enmod -q ssl &> /dev/null
+		a2enmod -q rewrite &> /dev/null
+		a2enmod -q vhost_alias &> /dev/null
+		av=$(php -i | grep 'PHP Version' -m 1 | grep -oP "\d\.\d")
+		if [ -n "$av" ]; then
+			a2dismod -q mpm_event 2>/dev/null
+			a2enmod -q mpm_prefork 2>/dev/null
+			a2enmod -q "php$av" 2>/dev/null
+		fi
+		rm /etc/apache2/sites-enabled/* 2>/dev/null
+		if [ -d  "$HOME/www/domains" ]
+		then
+			mapfile -t sites < <(cd "$HOME/www/domains" && ls -d -- */ 2>/dev/null)
+			for site in "${sites[@]}" 
+			do
+				site=$(echo -e "$site" | grep -oP "[^/]+") 
+				if [ -f "/etc/apache2/sites-available/$site.conf" ]; then
+					a2ensite "$site" > /dev/null
+				fi
+			done
+		fi
+		restart 'apache2'
+		isapache2 'install'
+	else
+		apachev=$(apache2 -v)
+		print_success " Apache $D_INSTALLED " "$apachev"
+		
+		if [ -z "$1" ] && (whiptail --title  " Apache $D_INSTALLED " --yesno  "$D_REINSTALLY Apache?\n\n$apachev" 10 60)  
+		then
+     		print_status "$D_REINSTALL Apache"
+			removeapache2
+			print_status "Apache $D_REMOVEDY"
+			isapache2
+		fi
+	fi
+}
+
+
+removeapache2()
+{
+	stop 'apache2'
+	print_status "$D_MAKEREMOVE Apache"
+	apt autopurge apache2 -y 2> /dev/null 
+	print_status "Apache $D_DELITING"
+}

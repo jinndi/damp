@@ -1,0 +1,34 @@
+#!/bin/bash
+
+ismariadb-server()
+{
+	if [ "$(isset 'mariadb-server')" = "OFF" ]
+	then
+		stop 'apache2'
+		print_status "$D_INSTALL MariaDB"
+		apt -y install mariadb-server 2>/dev/null 
+		start 'mariadb'
+		start 'apache2'
+		ismariadb-server 'install'
+	else
+		mariadbv=$(mariadb -V)
+		print_success " MariaDB $D_INSTALLED " "$mariadbv"
+
+		if [ -z "$1" ] && (whiptail --title  " MariaDB $D_INSTALLED " --yesno  "$D_REINSTALLY MariaDB?\n\n$mariadbv" 10 60)  then
+     		print_status "$D_REINSTALL MariaDB"
+			removemariadb-server
+			print_status "MariaDB $D_REMOVEDY"
+			ismariadb-server
+		fi
+	fi
+}
+
+removemariadb-server()
+{
+	stop 'mariadb'
+	stop 'apache2'
+	print_status "$D_MAKEREMOVE MariaDB"
+	apt autopurge mariadb* -y 2> /dev/null 
+	start 'apache2'
+	print_status "MariaDB $D_DELITING"
+}

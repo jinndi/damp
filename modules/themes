@@ -1,0 +1,62 @@
+#!/bin/bash
+
+applytheme()
+{
+    if test -t 1; then # if terminal
+        ncolors=$(which tput > /dev/null && tput colors) # supports color
+        if test -n "$ncolors" && test $ncolors -ge 8; then
+            termcols=$(tput cols)
+            bold="$(tput bold)"
+            underline="$(tput smul)"
+            standout="$(tput smso)"
+            #font color
+            black="$(tput setaf 0)"
+            red="$(tput setaf 1)"
+            green="$(tput setaf 2)"
+            yellow="$(tput setaf 3)"
+            blue="$(tput setaf 4)"
+            magenta="$(tput setaf 5)"
+            cyan="$(tput setaf 6)"
+            white="$(tput setaf 7)"
+            #background color
+            blackb="$(tput setab 0)"
+            redb="$(tput setab 1)"
+            greenb="$(tput setab 2)"
+            yellowb="$(tput setab 3)"
+            blueb="$(tput setab 4)"
+            magentab="$(tput setab 5)"
+            cyanb="$(tput setab 6)"
+            whiteb="$(tput setab 7)"
+            #reset default
+            if [ "$theme" == "default" ]; then
+                normal="$(tput sgr0)${blueb}${white}"
+                ttimer="${bold}${cyanb}${white}"
+                tsuccess="${bold}${blueb}${white}"
+                tstatus="${cyanb}${white}"
+            fi
+            if [ "$theme" == "light" ]; then
+                normal="$(tput sgr0)${whiteb}${blue}"
+                ttimer="${bold}${blueb}${white}"
+                tsuccess="${bold}${blueb}${white}"
+                tstatus="${blueb}${yellow}"
+            fi
+            if [ "$theme" == "black" ]; then
+                normal="$(tput sgr0)${blackb}${white}"
+                ttimer="${bold}${magentab}${white}"
+                tsuccess="${bold}${greenb}${white}"
+                tstatus="${blueb}${yellow}"
+            fi
+            if [ "$theme" == "green" ]; then
+                normal="$(tput sgr0)${blackb}${green}"
+                ttimer="${bold}${greenb}${white}"
+                tsuccess="${bold}${greenb}${white}"
+                tstatus="${green}${yellow}"
+            fi
+        fi
+    fi
+    export NEWT_COLORS="$(cat "$rootdir/themes/$theme")"
+    echo -n "${normal}"
+}
+
+
+

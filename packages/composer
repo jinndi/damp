@@ -1,0 +1,41 @@
+#!/bin/bash
+
+iscomposer()
+{
+	if ! [ -f /usr/local/bin/composer ]
+	then
+		if [ "$(isset 'php\d\.\d')" = "OFF" ]
+		then
+			whiptail --title  " $D_ATTENTION" --msgbox  "$D_COMPOSERDEPENCALERT" 10 60
+			return
+		fi
+		print_status "$D_INSTALL Composer"
+		cd ~ || return
+		curl -sS https://getcomposer.org/installer -o composer-setup.php
+		HASH="$(curl -sS https://composer.github.io/installer.sig)" 
+		php -r "if (hash_file('SHA384', 'composer-setup.php') === '$HASH') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
+		sleep 2
+		php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+		iscomposer 'install'
+	else
+		composerv=$(su "$urun" -c "composer -V")
+		print_success " Composer $D_INSTALLED " "$composerv"
+
+		if [ -z "$1" ] && (whiptail --title  " Composer $D_INSTALLED " --yesno  "$D_REINSTALLY Composer?\n\n$composerv" 10 60)  then
+			print_status "$D_REINSTALL Composer"
+			removecomposer
+			print_status "Composer $D_REMOVEDY"
+			iscomposer
+		fi
+	fi
+}
+
+removecomposer()
+{
+	print_status "$D_MAKEREMOVE Composer"
+	if [ "$(isset 'composer')" = "ON" ]; then
+		apt autopurge composer -y 2> /dev/null 
+	fi
+	rm /usr/local/bin/composer
+	print_status "Composer $D_DELITING"
+}

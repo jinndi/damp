@@ -1,0 +1,28 @@
+#!/bin/bash
+
+isgit()
+{
+	if [ "$(isset 'git')" = "OFF" ]
+	then
+		print_status "$D_INSTALL Git"
+		apt install -y git 2>/dev/null 
+		isgit 'install'
+	else
+		gitv=$(git --version)
+		print_success " Git $D_INSTALLED " "$gitv"
+
+		if [ -z "$1" ] && (whiptail --title  " Git $D_INSTALLED " --yesno  "$D_REINSTALLY Git?\n\n$gitv" 10 60)  then
+			print_status "$D_REINSTALL Git"
+			removegit
+			print_status "Git $D_REMOVEDY"
+			isgit
+		fi
+	fi
+}
+
+removegit()
+{
+	print_status "$D_MAKEREMOVE Git"
+	apt autopurge git -y 2> /dev/null 
+	print_status "Git $D_DELITING"
+}

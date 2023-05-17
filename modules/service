@@ -1,0 +1,97 @@
+#!/bin/bash
+
+servicecontrol()
+{
+	clear
+	declare -a menutop=()
+
+	if ! getP "$1"; then
+		menutop+=(" ⊳ " "$D_SERVICERUN")
+	else
+		menutop+=(" ◻ " "$D_SERVICESTOP")
+		menutop+=(" ↻ " "$D_SERVICERESTART")
+	fi
+	
+	if systemctl is-enabled "$1" | grep -q "enabled"; then
+		menutop+=(" ☒ " "$D_SERVICEREMOVEAUTOLOAD")
+	else
+		menutop+=(" ☑ " "$D_SERVICEADDAUTOLOAD")
+	fi
+	if [ "$1" == "mariadb" ]; then
+		if [ "$(isset 'adminer')" == 'ON' ]; then
+			menutop+=(" Ⓐ " "open Adminer")
+		fi
+		if [ "$(isset 'phpmyadmin')" == 'ON' ]; then
+			menutop+=(" Ⓟ " "open phpMyAdmin")
+		fi
+		menutop+=(" ☼ " "$D_BASECONFIGSECURE")
+	fi	
+	menutop+=(" ☶ " "$D_CONFIGOPEN")
+	OPTIONSERVICE=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu "\n  $D_ACTIONS: $1" 20 60 10 \
+	"${menutop[@]}" 3>&1 1>&2 2>&3)
+	exitstatus=$?
+
+	if [ $exitstatus = 0 ]  
+	then
+		case $OPTIONSERVICE in
+			" ⊳ ") start "$1" ;;
+			" ◻ ") stop "$1"  ;;
+			" ↻ ") restart "$1" ;;
+			" ☒ ") removeautoload "$1" ;;
+			" ☑ ") addautoload "$1" ;;
+			" ☶ ") configedit "$1" ;;
+			" ☼ ")
+				startmariadb
+				mysql_secure_installation
+				echo "$D_READY"
+				sleep 3
+			;;
+			" Ⓐ ") su "$urun" -c "xdg-open http://localhost/adminer" ;;
+			" Ⓟ ") su "$urun" -c "xdg-open http://localhost/phpmyadmin" ;;
+		esac
+	else
+     	menu
+	fi
+	servicecontrol "$1"
+}
+
+addautoload()
+{
+	cmd="$(systemctl enable "$1" 2>/dev/null)"
+	progresss "$cmd" " ► $D_AUTOLOADADD $1..."
+}
+
+removeautoload()
+{
+	cmd="$(systemctl disable "$1" 2>/dev/null)"
+	progresss "$cmd" " ☒ $D_AUTOLOADREMOVE $1..."
+}
+
+restart()
+{
+	if getP "$1"; then
+		cmd="$(systemctl restart "$1" 2>/dev/null)"
+		progresss "$cmd" " ↻ $D_RESTART $1..."
+	else
+		stoppservice "$1"
+	fi
+}
+
+stop()
+{
+	if getP "$1"; then
+		cmd="$(systemctl stop "$1" 2>/dev/null)"
+		progresss "$cmd" " ◼ $D_STOP $1..."
+	fi
+	
+}
+
+start()
+{
+	if ! getP "$1"; then
+		cmd="$(systemctl start "$1" 2>/dev/null)"
+		progresss "$cmd" " ► $D_START $1..."
+	fi
+}

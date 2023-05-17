@@ -1,0 +1,114 @@
+#!/bin/bash
+
+backupmenufile()
+{
+	clear
+	declare -a chekbackups=("+ $D_BACKUPADDSITE" "" "" "")
+	
+	if ! [ -d "$HOME/www/backups/domains/$1" ]; then
+		mkdir -p "$HOME/www/backups/domains/$1"
+		chmod -R 0755 "$HOME/www/backups"
+	fi
+
+	mapfile -t backups < <(cd "$HOME/www/backups/domains/$1" && ls 2>/dev/null)
+
+	for backup in "${backups[@]}" 
+	do
+		sizeb=$(stat -c %s "$HOME/www/backups/domains/$1/$backup")
+		sizek=$((sizeb/1024))
+		if [ $sizek -gt 1024 ]; then
+			sizeecho=" | $((sizek/1024))МБ"
+		else
+			sizeecho=" | $sizekКБ"
+		fi
+		chekbackups+=("$backup" "$sizeecho")
+	done
+
+	OPTIONBKP=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu  "\n  $D_BACKUPFILESITE: $1" 20 60 10 \
+	"${chekbackups[@]}" 3>&1 1>&2 2>&3)
+ 	
+	exitstatus=$?
+	
+	if [ $exitstatus = 0 ]  
+	then
+		if [ "$OPTIONBKP" =  "+ $D_BACKUPADDSITE" ]; then
+			backupaddfile "$1"
+		else 
+			if [ "$OPTIONBKP" =  "" ]; then
+				backupmenufile "$1"
+			fi
+			backupactionsfile "$OPTIONBKP" "$1"
+		fi
+	else
+     	siteactions "$1"
+	fi
+}
+
+backupactionsfile()
+{
+	clear
+	OPTIONBACKUP=$(whiptail --title  "$D_NAMESOFT" \
+	--ok-button  " ОК [Enter] " --cancel-button  " $D_BACK [ESC] " \
+	--menu  "\n$D_BACKUPCOPYFILE $2 от $1" 20 60 10 \
+	" ◲ " "$D_BACKUPSITERESTORY" \
+	" ✘ " "$D_BACKUPSITEDELITE" \
+	3>&1 1>&2 2>&3)
+	exitstatus=$?
+	
+	if [ $exitstatus = 0 ]  
+	then
+		case $OPTIONBACKUP in
+			" ◲ ") restorebakupfile "$1" "$2" ;;
+			" ✘ ") deletebakupfile "$1" "$2";;
+		esac
+	else
+     	sitescontrol
+	fi
+	siteactions "$2"
+}
+
+backupaddfile()
+{
+	clear
+	taim=$(date +"%d.%m.%Y_%T")
+	cd "$HOME/www/domains/$1/" || return
+	cmd="$(7z a "$HOME/www/backups/domains/$1/$taim" -- *)"
+	progresss "$cmd" " 📚 $D_BACKUPFILESITECREATE $1..."
+	cd "$HOME" || return
+	backupmenufile "$1"
+}
+
+restorebakupfile()
+{
+	clear
+	if (whiptail --title  " $D_ATTENTION " --yesno "https://$2 date $1 - $D_BACKUPRESTORYFILEINFO" 10 60)  
+	then
+		cd "$HOME/www/domains/$2/" || return
+		rm -vfr -- * &> /dev/null
+		cmd="$(7z x "$HOME/www/backups/domains/$2/$1")"
+		progresss "$cmd" " ◲  $D_BACKUPRESTORYFILEGO $2... "
+		cd "$HOME" || return
+		chown -R www-data:www-data "$HOME/www/domains/$2/public_html"
+		chown -R www-data:www-data "$HOME/www/domains/$2/session"
+		chown -R www-data:www-data "$HOME/www/domains/$2/temp" 
+		chmod -R 0755 "$HOME/www/domains/$2"
+		chmod -R 0775 "$HOME/www/domains/$2/public_html"
+		chmod g+s "$HOME/www/domains/$2/public_html"
+		whiptail --title  " $D_BACKUPRESTORYFILEOK " --msgbox  "https://$2 date $1 - $D_BACKUPRESTORYFILEBOX" 10 60
+	fi
+	backupmenufile "$2"
+}
+
+deletebakupfile()
+{
+	clear
+	if (whiptail --title  " $D_ATTENTION " --yesno "https://$2 date $1 - $D_BACKUPDELITEFILEINFO" 10 60) 
+	then
+		cmd="$(rm -vfr "$HOME/www/backups/domains/$2/$1")"
+		progresss "$cmd" " ✘  $D_BACKUPDELITEFILEGO $1... "
+	fi
+	backupmenufile "$2"
+}
+

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+isadminer()
+{
+	if [ "$(isset 'adminer')" = "OFF" ]
+	then
+		if [ "$(isset 'mariadb-server')" == "OFF" ] || [ "$(isset 'apache2')" == "OFF" ] || [ "$(isset 'php\d\.\d')" = "OFF" ]
+		then
+			whiptail --title  " $D_ATTENTION" --msgbox  "$D_ADMINERDEPENCALERT" 10 60
+			return
+		fi
+		start 'mariadb'
+		print_status "$D_INSTALL Adminer"
+		apt install -y adminer 2>/dev/null 
+		sleep 1
+		a2enconf -q adminer 2> /dev/null
+		restart 'apache2'
+		isadminer 'install'
+	else
+		adminerv=$(getV 'adminer')
+		print_success " Adminer $D_INSTALLED " "Adminer version: $adminerv"
+
+		if [ -z "$1" ] && (whiptail --title  " Adminer $D_INSTALLED " --yesno  "$D_REINSTALLY Adminer?\nAdminer version: $adminerv" 10 60)  then
+			print_status "$D_REINSTALL Adminer"
+			removeadminer
+			print_status "Adminer $D_REMOVEDY"
+			isadminer
+		fi
+	fi
+}
+
+removeadminer()
+{
+	stop 'apache2'
+	start 'mariadb'
+	print_status "$D_MAKEREMOVE Adminer"
+	a2disconf -q adminer 2> /dev/null
+	apt autopurge adminer -y 2> /dev/null 
+	start 'apache2'
+	print_status "Adminer $D_DELITING"
+}
