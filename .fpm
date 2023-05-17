@@ -1,0 +1,26 @@
+-t deb 
+-p damp-0.1.0-x86_64.deb
+-s dir
+--name damp
+--license osl-3.0
+--version 0.1.0
+--architecture x86_64
+--depends bash
+--depends whiptail 
+--depends p7zip-full
+--depends mc-data
+--depends xterm
+--depends curl
+--description "DAMP (Debian Apache Mariadb Php) is your faithful console assistant in local web development."
+--url "https://damp.com"
+--maintainer "Alncores <alncores@gmail.com>"
+locales=/opt/DAMP/
+modules=/opt/DAMP/
+packages=/opt/DAMP/
+themes=/opt/DAMP/
+DAMP=/opt/DAMP/DAMP
+DAMP.conf=/opt/DAMP/DAMP.conf
+icon.png=/opt/DAMP/icon.png
+DAMP.desktop=/usr/share/applications/DAMP.desktop
+--after-install linkbin
+--after-remove unlinkbin
