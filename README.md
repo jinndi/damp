@@ -3,7 +3,8 @@
 Console utility DAMP (Debian Apache Mariadb PHP)
 Your faithful assistant in local web development
 
-![изображение](https://github.com/jinndi/damp/assets/5617539/cbefc984-e8a8-46c8-9004-bb7509381d27)
+![изображение](https://github.com/jinndi/damp/assets/5617539/8c3ff46c-57e8-4732-a570-3f8b80dea6f3)
+
 
 ► Debian and Ubuntu support
 
