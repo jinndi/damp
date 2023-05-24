@@ -20,7 +20,7 @@ Stay tuned for new features!
 -
 Usage: 
 -
-Download and extract the sources in zip or download via git, run the DEBIAN file to work without installation, or create a deb archive to install the "bash assembly" commands
+Download and extract the sources in zip or download via git, run the assembly file to work without installation, or create a deb archive to install the "bash assembly" commands
 
 Have a nice work!
 -
